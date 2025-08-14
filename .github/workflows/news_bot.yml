@@ -2,7 +2,7 @@ name: WSJ AI News Bot
 
 on:
   schedule:
-    - cron: '0 * * * *'  # каждые 15 минут по UTC
+    - cron: '0 * * * *'  # каждый час по UTC
   workflow_dispatch:  # позволяет запускать вручную
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 lxml
       - name: Run news bot
         run: python news_bot.py
         env:
