@@ -41,22 +41,46 @@ def check_news():
         guid = item.guid.text if item.guid else None
         description = item.description.text if item.description else "Описание отсутствует"
 
+        # Получаем картинку (media:content или media:thumbnail)
+        media = item.find("media:content")
+        if media and media.get("url"):
+            image_url = media["url"]
+        else:
+            thumbnail = item.find("media:thumbnail")
+            image_url = thumbnail["url"] if thumbnail and thumbnail.get("url") else None
+
         # проверяем, что guid уникальный и статья по AI
         if guid and link and "https://www.wsj.com/tech/ai/" in link and guid not in sent_links:
-            new_items.append((title, link, description))
-            sent_links.add(guid)  # сохраняем guid вместо ссылки
+            new_items.append((title, link, description, image_url))
+            sent_links.add(guid)
 
     # Отправляем новые статьи в Telegram
-    for i, (title, link, description) in enumerate(new_items, start=1):
-        message = f"{i}. {title}\n{description}\n{link}"
-        if send_telegram(message):
-            print(f"Отправлено: {title}")
+    for i, (title, link, description, image_url) in enumerate(new_items, start=1):
+        if image_url:
+            # Отправляем с картинкой
+            response = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+                data={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "caption": f"{i}. {title}\n{description}\n{link}",
+                    "disable_web_page_preview": True
+                },
+                files={"photo": requests.get(image_url).content}
+            )
+            if response.ok:
+                print(f"Отправлено: {title} (с картинкой)")
+            else:
+                print(f"Ошибка отправки: {title}")
         else:
-            print(f"Ошибка отправки: {title}")
+            # Отправляем текстом, если нет картинки
+            message = f"{i}. {title}\n{description}\n{link}"
+            send_telegram(message)
+            print(f"Отправлено: {title} (без картинки)")
 
     # Сохраняем отправленные guid
     with open(SENT_FILE, "w") as f:
         json.dump(list(sent_links), f)
+
 
 
 if __name__ == "__main__":
