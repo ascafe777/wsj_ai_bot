@@ -36,18 +36,19 @@ def check_news():
     new_items = []
 
     for item in soup.find_all("item"):
-        title = item.title.text if item.title else None
+        title = item.title.text if item.title else "Без заголовка"
         link = item.link.text if item.link else None
-        guid = item.guid.text if item.guid else None  # используем guid для проверки дублей
+        guid = item.guid.text if item.guid else None
+        description = item.description.text if item.description else "Описание отсутствует"
 
         # проверяем, что guid уникальный и статья по AI
         if guid and link and "https://www.wsj.com/tech/ai/" in link and guid not in sent_links:
-            new_items.append((title, link))
+            new_items.append((title, link, description))
             sent_links.add(guid)  # сохраняем guid вместо ссылки
 
     # Отправляем новые статьи в Telegram
-    for i, (title, link) in enumerate(new_items, start=1):
-        message = f"{i}. {title}\n   {link}"
+    for i, (title, link, description) in enumerate(new_items, start=1):
+        message = f"{i}. {title}\n{description}\n{link}"
         if send_telegram(message):
             print(f"Отправлено: {title}")
         else:
@@ -56,6 +57,7 @@ def check_news():
     # Сохраняем отправленные guid
     with open(SENT_FILE, "w") as f:
         json.dump(list(sent_links), f)
+
 
 if __name__ == "__main__":
     check_news()
