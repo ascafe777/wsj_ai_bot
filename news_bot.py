@@ -8,17 +8,17 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 RSS_URL = "https://feeds.content.dowjones.io/public/rss/RSSWSJD"
 
-# Ограничение по времени: сколько часов назад брать статьи
+# Сколько часов назад брать статьи
 HOURS_LIMIT = 24
 
-def send_telegram(msg: str):
+def send_telegram(msg):
     """Отправка сообщения в Telegram"""
     response = requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
         data={
             "chat_id": TELEGRAM_CHAT_ID,
             "text": msg,
-            "disable_web_page_preview": False  # показывать превью
+            "disable_web_page_preview": True
         }
     )
     if not response.ok:
@@ -31,28 +31,27 @@ def check_news():
     soup = BeautifulSoup(resp.content, "lxml-xml")
 
     now_utc = datetime.now(timezone.utc)
-    fresh_items = []
+    new_items = []
 
     for item in soup.find_all("item"):
-        title = item.title.text.strip() if item.title else None
-        link = item.link.text.strip() if item.link else None
-        description_html = item.description.text if item.description else ""
+        title = item.title.text if item.title else None
+        link = item.link.text if item.link else None
+        description = item.description.text if item.description else ""
         pub_date_text = item.pubDate.text if item.pubDate else None
 
         if not (title and link and pub_date_text):
             continue
 
-        # Преобразуем pubDate в datetime
+        # Парсим дату публикации
         pub_date = parsedate_to_datetime(pub_date_text)
 
-        # Проверяем, что статья свежая и про AI
+        # Фильтруем: за последние HOURS_LIMIT часов
         if now_utc - pub_date <= timedelta(hours=HOURS_LIMIT) and "https://www.wsj.com/tech/ai/" in link:
-            # Убираем HTML-теги из описания
-            short_desc = BeautifulSoup(description_html, "html.parser").get_text().strip()
-            fresh_items.append((title, short_desc, link))
+            short_desc = BeautifulSoup(description, "html.parser").get_text().strip()
+            new_items.append((title, short_desc, link))
 
-    # Отправляем новые статьи в Telegram
-    for i, (title, desc, link) in enumerate(fresh_items, start=1):
+    # Отправляем статьи в Telegram
+    for i, (title, desc, link) in enumerate(new_items, start=1):
         message = f"{i}. {title}\n{desc}\n{link}"
         send_telegram(message)
         print(message, "\n")
