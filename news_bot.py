@@ -1,61 +1,31 @@
-import os
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
-import json
+import os
 
-# Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 RSS_URL = "https://feeds.content.dowjones.io/public/rss/RSSWSJD"
-HOURS_LIMIT = 24  # за сколько часов брать новости
 
-# Настройки Gist
-GIST_ID = os.getenv("GIST_ID")
-GIST_FILE = "sent_links.json"
-GIST_TOKEN = os.getenv("WSJ")
-HEADERS = {"Authorization": f"token {GIST_TOKEN}"}
+# Ограничение по времени: сколько часов назад брать статьи
+HOURS_LIMIT = 24
 
-def fetch_sent_links():
-    """Загружаем sent_links.json из Gist"""
-    resp = requests.get(f"https://api.github.com/gists/{GIST_ID}", headers=HEADERS)
-    resp.raise_for_status()
-    gist_data = resp.json()
-    content = gist_data['files'][GIST_FILE]['content']
-    try:
-        return set(json.loads(content))
-    except:
-        return set()
-
-def update_sent_links(sent_links):
-    """Обновляем Gist с новыми ссылками"""
-    update_data = {
-        "files": {
-            GIST_FILE: {
-                "content": json.dumps(list(sent_links), indent=2)
-            }
-        }
-    }
-    resp = requests.patch(f"https://api.github.com/gists/{GIST_ID}", headers=HEADERS, json=update_data)
-    if not resp.ok:
-        print("Ошибка обновления Gist:", resp.text)
-
-def send_telegram(msg):
+def send_telegram(msg: str):
     """Отправка сообщения в Telegram"""
-    resp = requests.post(
+    response = requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
         data={
             "chat_id": TELEGRAM_CHAT_ID,
             "text": msg,
-            "disable_web_page_preview": False
+            "disable_web_page_preview": False  # показывать превью
         }
     )
-    if not resp.ok:
-        print("Ошибка Telegram:", resp.status_code, resp.text)
+    if not response.ok:
+        print("Ошибка Telegram:", response.status_code, response.text)
+    return response.ok
 
 def check_news():
-    sent_links = fetch_sent_links()
     resp = requests.get(RSS_URL, headers={"User-Agent": "Mozilla/5.0"})
     resp.raise_for_status()
     soup = BeautifulSoup(resp.content, "lxml-xml")
@@ -72,22 +42,20 @@ def check_news():
         if not (title and link and pub_date_text):
             continue
 
+        # Преобразуем pubDate в datetime
         pub_date = parsedate_to_datetime(pub_date_text)
 
+        # Проверяем, что статья свежая и про AI
         if now_utc - pub_date <= timedelta(hours=HOURS_LIMIT) and "https://www.wsj.com/tech/ai/" in link:
-            if link in sent_links:
-                continue  # пропускаем уже отправленные
+            # Убираем HTML-теги из описания
             short_desc = BeautifulSoup(description_html, "html.parser").get_text().strip()
             fresh_items.append((title, short_desc, link))
-            sent_links.add(link)
 
+    # Отправляем новые статьи в Telegram
     for i, (title, desc, link) in enumerate(fresh_items, start=1):
         message = f"{i}. {title}\n{desc}\n{link}"
         send_telegram(message)
         print(message, "\n")
-
-    if fresh_items:
-        update_sent_links(sent_links)
 
 if __name__ == "__main__":
     check_news()
