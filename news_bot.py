@@ -3,8 +3,8 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
-TELEGRAM_TOKEN = os.environ["8410867421:AAFP6ZJW4Ice_9P2yvT7cxwxV3lAfHGA42Q"]
-TELEGRAM_CHAT_ID = os.environ["198971151"]
+TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 URL = "https://www.wsj.com/tech/ai?mod=nav_top_subsection"
 
 # Файл для хранения уже отправленных ссылок
