@@ -2,7 +2,7 @@ name: WSJ AI News Bot
 
 on:
   schedule:
-    - cron: '0 13 * * *'  # каждый час по UTC
+    - cron: '0 16 * * 5'  # каждый час по UTC
   workflow_dispatch:  # позволяет запускать вручную
 
 jobs:
